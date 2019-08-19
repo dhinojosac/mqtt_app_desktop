@@ -4,60 +4,54 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/url"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
-	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/dialog"
-	"fyne.io/fyne/layout"
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
-func welcomeScreen(a fyne.App) fyne.CanvasObject {
-	logo := canvas.NewImageFromResource(theme.FyneLogo())
-	logo.SetMinSize(fyne.NewSize(320, 320))
-	link, err := url.Parse("https://fyne.io/")
-	if err != nil {
-		fyne.LogError("Could not parse URL", err)
-	}
-
-	return widget.NewVBox(
-		widget.NewLabelWithStyle("Welcome to the Fyne toolkit demo app", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		layout.NewSpacer(),
-		widget.NewHBox(layout.NewSpacer(), logo, layout.NewSpacer()),
-		widget.NewHyperlinkWithStyle("fyne.io", link, fyne.TextAlignCenter, fyne.TextStyle{}),
-		layout.NewSpacer(),
-
-		widget.NewGroup("Theme",
-			fyne.NewContainerWithLayout(layout.NewGridLayout(2),
-				widget.NewButton("Dark", func() {
-					a.Settings().SetTheme(theme.DarkTheme())
-				}),
-				widget.NewButton("Light", func() {
-					a.Settings().SetTheme(theme.LightTheme())
-				}),
-			),
-		),
-	)
-}
-
 func MQTTScreen(win fyne.Window) fyne.CanvasObject {
+
 	mqtt_address := widget.NewEntry()
-	mqtt_address.SetPlaceHolder("MQTT Broker Address")
+	mqtt_address.SetPlaceHolder("code4fun.cl")
 	mqtt_password := widget.NewPasswordEntry()
-	mqtt_password.SetPlaceHolder("MQTT password")
+	mqtt_password.SetPlaceHolder("*****")
 	mqtt_topic := widget.NewEntry()
-	mqtt_topic.SetPlaceHolder("MQTT Topic")
+	mqtt_topic.SetPlaceHolder("test")
 	mqtt_message_label := widget.NewLabel("Message:")
 	mqtt_message_input := widget.NewMultiLineEntry()
 	send_button := widget.NewButton(fmt.Sprintf("Publish"), func() {
-		fmt.Println("Publish")
+		if mqtt_topic.Text == "" {
+			err := errors.New("MQTT Topic empty!")
+			dialog.ShowError(err, win)
+		} else if mqtt_address.Text == "" {
+			err := errors.New("MQTT Broker empty!")
+			dialog.ShowError(err, win)
+		} else {
+			fmt.Println("Publish message")
+			opts := MQTT.NewClientOptions().AddBroker("tcp://" + mqtt_address.Text + ":1883") //"tcp://code4fun.cl:1883"
+			client := MQTT.NewClient(opts)
+			if token := client.Connect(); token.Wait() && token.Error() != nil {
+				log.Fatal(token.Error())
+			}
+			if token := client.Publish(mqtt_topic.Text, 0, false, mqtt_message_input.Text); token.Wait() && token.Error() != nil {
+				log.Fatal(token.Error())
+			}
+		}
 	})
 	return widget.NewVBox(
+		widget.NewLabel("MQTT Broker"),
 		mqtt_address,
+		widget.NewLabel("MQTT Password"),
 		mqtt_password,
+		widget.NewLabel("MQTT Topic"),
 		mqtt_topic,
 		mqtt_message_label,
 		mqtt_message_input,
@@ -95,6 +89,11 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 }
 
 func main() {
+	//mqtt
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	//gui
 	a := app.New()
 	w := a.NewWindow("MQTT App")
 	a.Settings().SetTheme(theme.LightTheme())
@@ -109,8 +108,8 @@ func main() {
 	)))
 
 	tabs := widget.NewTabContainer(
-		widget.NewTabItemWithIcon("MQTT Publish", theme.ContentCopyIcon(), MQTTScreen(w)),
-		widget.NewTabItemWithIcon("MQTT Subscribe", theme.ContentCopyIcon(), MQTTSubScreen(w)),
+		widget.NewTabItemWithIcon("MQTT Publish", theme.MoveUpIcon(), MQTTScreen(w)),
+		widget.NewTabItemWithIcon("MQTT Subscribe", theme.MoveDownIcon(), MQTTSubScreen(w)),
 	)
 	tabs.SetTabLocation(widget.TabLocationLeading)
 	w.SetContent(tabs)
