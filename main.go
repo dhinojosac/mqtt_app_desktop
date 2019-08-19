@@ -5,37 +5,36 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/dialog"
+	"fyne.io/fyne/layout"
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 func MQTTScreen(win fyne.Window) fyne.CanvasObject {
 
 	mqtt_address := widget.NewEntry()
 	mqtt_address.SetPlaceHolder("code4fun.cl")
+	mqtt_address.Text = "code4fun.cl"
 	mqtt_user := widget.NewEntry()
 	mqtt_user.SetPlaceHolder("JohnDoe")
 	mqtt_password := widget.NewPasswordEntry()
 	mqtt_password.SetPlaceHolder("*****")
 	mqtt_topic := widget.NewEntry()
 	mqtt_topic.SetPlaceHolder("test")
+	mqtt_topic.Text = "test"
 	mqtt_message_label := widget.NewLabel("Message:")
 	mqtt_message_input := widget.NewMultiLineEntry()
-	send_button := widget.NewButton(fmt.Sprintf("Publish"), func() {
-		if mqtt_topic.Text == "" {
-			err := errors.New("MQTT Topic empty!")
-			dialog.ShowError(err, win)
-		} else if mqtt_address.Text == "" {
+	pub_button := widget.NewButton(fmt.Sprintf("Publish"), func() {
+		if mqtt_address.Text == "" {
 			err := errors.New("MQTT Broker empty!")
+			dialog.ShowError(err, win)
+		} else if mqtt_topic.Text == "" {
+			err := errors.New("MQTT Topic empty!")
 			dialog.ShowError(err, win)
 		} else {
 			fmt.Println("Publish message")
@@ -66,30 +65,44 @@ func MQTTScreen(win fyne.Window) fyne.CanvasObject {
 		mqtt_topic,
 		mqtt_message_label,
 		mqtt_message_input,
-		send_button,
+		pub_button,
 	)
 }
 
 func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 	mqtt_address := widget.NewEntry()
 	mqtt_address.SetPlaceHolder("code4fun.cl")
+	mqtt_address.Text = "code4fun.cl"
 	mqtt_user := widget.NewEntry()
 	mqtt_user.SetPlaceHolder("JohnDoe")
 	mqtt_password := widget.NewPasswordEntry()
 	mqtt_password.SetPlaceHolder("*****")
 	mqtt_topic := widget.NewEntry()
 	mqtt_topic.SetPlaceHolder("test")
-	mqtt_message_label := widget.NewLabel("Messages:")
+	mqtt_topic.Text = "test"
+	//mqtt_message_label := widget.NewLabel("Incoming Messages:")
+
+	//scroll
 	list := widget.NewVBox()
-	scroll := widget.NewScrollContainer(list)
-	scroll.Resize(fyne.NewSize(200, 200))
+	list.Resize(fyne.NewSize(100, 100))
 	index := 1
-	send_button := widget.NewButton(fmt.Sprintf("Subscribe"), func() {
-		if mqtt_topic.Text == "" {
-			err := errors.New("MQTT Topic empty!")
-			dialog.ShowError(err, win)
-		} else if mqtt_address.Text == "" {
+	/*
+		//Fill scrollable list
+		for i := 1; i <= 20; i++ {
+			list.Append(widget.NewLabel(fmt.Sprintf("test %d", index)))
+			index++
+		}
+	*/
+	scroll := widget.NewScrollContainer(list)
+
+	//button subscribe
+	var subs_button *widget.Button
+	subs_button = widget.NewButton(fmt.Sprintf("Subscribe"), func() {
+		if mqtt_address.Text == "" {
 			err := errors.New("MQTT Broker empty!")
+			dialog.ShowError(err, win)
+		} else if mqtt_topic.Text == "" {
+			err := errors.New("MQTT Topic empty!")
 			dialog.ShowError(err, win)
 		} else {
 			fmt.Println("Subscribe")
@@ -105,9 +118,12 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 				log.Fatal(token.Error())
 			}
 
+			subs_button.Text = "Subscribed"
+			subs_button.Disable()
+			list.Append(widget.NewLabel("Subscribed to " + mqtt_address.Text))
 			go func() {
-				client.Subscribe(mqtt_topic.Text, 0, func(client mqtt.Client, msg mqtt.Message) {
-					console_text := fmt.Sprintf(">topic:[%s] message: %s\n", msg.Topic(), string(msg.Payload()))
+				client.Subscribe(mqtt_topic.Text, 0, func(client MQTT.Client, msg MQTT.Message) {
+					console_text := fmt.Sprintf("> %s", string(msg.Payload()))
 					list.Append(widget.NewLabel(console_text))
 					index++
 				})
@@ -116,7 +132,7 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 		}
 
 	})
-	return widget.NewVBox(
+	v1 := widget.NewVBox(
 		widget.NewLabel("MQTT Broker"),
 		mqtt_address,
 		widget.NewLabel("User"),
@@ -125,17 +141,15 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 		mqtt_password,
 		widget.NewLabel("Topic"),
 		mqtt_topic,
-		send_button,
-		mqtt_message_label,
-		scroll,
+		subs_button,
 	)
+
+	content := fyne.NewContainerWithLayout(layout.NewGridLayout(2), v1, scroll)
+
+	return content
 }
 
 func main() {
-	//mqtt
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
 	//gui
 	a := app.New()
 	w := a.NewWindow("MQTT App")
@@ -154,9 +168,9 @@ func main() {
 		widget.NewTabItemWithIcon("MQTT Publish", theme.MoveUpIcon(), MQTTScreen(w)),
 		widget.NewTabItemWithIcon("MQTT Subscribe", theme.MoveDownIcon(), MQTTSubScreen(w)),
 	)
+
 	tabs.SetTabLocation(widget.TabLocationLeading)
 	w.SetContent(tabs)
-	w.Resize(fyne.NewSize(520, 160))
-	w.SetFixedSize(true)
+	w.Resize(fyne.NewSize(720, 320))
 	w.ShowAndRun()
 }
