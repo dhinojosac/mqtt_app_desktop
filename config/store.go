@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/dhinojosac/mqtt_app_desktop/model"
@@ -23,6 +24,9 @@ func ReadPublisher() []model.PublisherData {
 
 }
 
-func WritePublisher() {
+func WritePublisher(m []model.PublisherData) {
+	file, _ := json.MarshalIndent(m, "", " ")
+
+	_ = ioutil.WriteFile("conf.json", file, 0644)
 
 }

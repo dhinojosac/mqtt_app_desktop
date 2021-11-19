@@ -58,7 +58,7 @@ func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 
 	mqtt_log := widget.NewLabel("")
 	var conn_button *widget.Button
-	conn_button = widget.NewButton("Connect", func() {
+	conn_button = widget.NewButton("CONNECT", func() {
 		if !isConnected {
 			if mqtt_address.Text == "" {
 				err := errors.New("MQTT Broker empty")
@@ -77,7 +77,7 @@ func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 				}
 				isConnected = true
 				mqtt_log.SetText("Client connected")
-				conn_button.SetText("Disconnect")
+				conn_button.SetText("DISCONNECT")
 				mqtt_address.Disable()
 				mqtt_user.Disable()
 				mqtt_password.Disable()
@@ -88,7 +88,7 @@ func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 			Client.Disconnect(200)
 			isConnected = false
 			mqtt_log.SetText("Client disconnected")
-			conn_button.SetText("Connect")
+			conn_button.SetText("CONNECT")
 			mqtt_address.Enable()
 			mqtt_user.Enable()
 			mqtt_password.Enable()
@@ -111,14 +111,15 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 
 	mqtt_topic := widget.NewEntry()
 	mqtt_topic.SetPlaceHolder("devices/<organization>/device/<identifier>/measurements")
-	mqtt_topic.Text = "devices/2/device/DEMO2/measurements"
+	//mqtt_topic.Text = "devices/2/device/DEMO2/measurements"
 
 	mqtt_message_label := widget.NewLabel("Message:")
 	mqtt_message_input := widget.NewMultiLineEntry()
-	mqtt_message_input.SetText(`{"temp":24, "hum":50}`)
+	mqtt_message_input.SetPlaceHolder(`{"temp":24, "hum":50}`)
+	//mqtt_message_input.SetText(`{"temp":24, "hum":50}`)
 
 	mqtt_log := widget.NewLabel("")
-	pub_button := widget.NewButton("Publish", func() {
+	pub_button := widget.NewButton("PUBLISH", func() {
 		if isConnected {
 			if mqtt_topic.Text == "" {
 				err := errors.New("MQTT Topic empty")
@@ -192,13 +193,58 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 	}
 	// end publisher implementation
 
+	// Save templates to file
+
+	pLabel := widget.NewLabel("Add name and description")
+	namePubEntry := widget.NewEntry()
+	namePubEntry.SetPlaceHolder("Name")
+	descPubEntry := widget.NewEntry()
+	descPubEntry.SetPlaceHolder("Description")
+	descPubEntry.MultiLine = true
+	cp := container.NewVBox(pLabel, namePubEntry, descPubEntry)
+
+	// Save Button
+	addPubButton := widget.NewButton("SAVE TEMPLATE", func() {
+		dialog.ShowCustomConfirm("Save Template", "SAVE", "CANCEL", cp, func(b bool) {
+			n := model.PublisherData{
+				Name:        namePubEntry.Text,
+				Description: descPubEntry.Text,
+				Topic:       mqtt_topic.Text,
+				Message:     mqtt_message_input.Text,
+			}
+			pubList.AddItem(n)                         //Add new item to list object
+			config.WritePublisher(pubList.PubList)     //Write new list conf.json
+			pubList.ReSetItems(config.ReadPublisher()) //Read conf.json
+			publisherSelect.SetText(n.Name)
+			publisherSelect.SetOptions(pubList.GetNames()) //Add new list to selectEntry
+			namePubEntry.SetText("")
+			descPubEntry.SetText("")
+
+		}, win)
+	})
+
+	// Delete Button
+	deletePubButton := widget.NewButton("DELETE TEMPLATE", func() {
+		dialog.ShowCustomConfirm("Delete Template", "SAVE", "CANCEL", widget.NewLabel("Are you sure?"), func(b bool) {
+			pubList.DeleteItem(publisherSelect.Text)   //delete item from object list
+			config.WritePublisher(pubList.PubList)     //Write new list to conf.json
+			pubList.ReSetItems(config.ReadPublisher()) //Read conf.json
+			mqtt_topic.SetText("")                     //reset topic entry
+			mqtt_message_input.SetText("")             //reset message entry
+			publisherSelect.SetText("")
+			publisherSelect.SetOptions(pubList.GetNames()) //Add new list to selectEntry
+		}, win)
+	})
+
+	pubActions := container.NewHBox(widget.NewLabel("Select Publishing Template:"), addPubButton, deletePubButton)
+
 	return container.New(layout.NewVBoxLayout(),
 		widget.NewLabel("Topic:"),
 		mqtt_topic,
 		mqtt_message_label,
 		mqtt_message_input,
 		pub_button,
-		widget.NewLabel("Select Publish Template:"),
+		pubActions,
 		publisherSelect,
 		pub_adv,
 		mqtt_log,
@@ -220,7 +266,7 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 	scroll := container.NewVScroll(containerList)
 	scroll.Resize(fyne.NewSize(800, 100))
 
-	desub_button = widget.NewButton("Unsubscribe", func() {
+	desub_button = widget.NewButton("UNSUBSCRIBE", func() {
 		if isConnected && isSubscribed {
 			Client.Unsubscribe(mqtt_topic.Text)
 			isSubscribed = false
@@ -242,7 +288,7 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 
 	desub_button.Disable()
 
-	subs_button = widget.NewButton("Subscribe", func() {
+	subs_button = widget.NewButton("SUBSCRIBE", func() {
 		if isConnected {
 			if mqtt_topic.Text == "" {
 				err := errors.New("[!] MQTT Topic empty")
@@ -310,7 +356,7 @@ func makeUI() fyne.CanvasObject {
 func main() {
 	//gui
 	a := app.New()
-	w := a.NewWindow("TGC MQTT Tester v0.1")
+	w := a.NewWindow("TGC MQTT Tester v0.5")
 
 	w.SetIcon(appLogo)
 

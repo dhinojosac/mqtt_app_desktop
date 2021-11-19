@@ -1,33 +1,20 @@
-
-    [
-        {
-            "Name": "Demo2", 
-            "Topic": "devices/2/device/DEMO2/measurements", 
-            "Message": "{'temp':30, 'hum':55, 'bat':72}"
-        },
-        {
-            "Name": "Demo1", 
-            "Topic": "devices/2/device/DEMO1/measurements", 
-            "Message": "{'temp':30, 'hum':55, 'bat':72}"
-        },
-        {
-            "Name": "Vitalis Test", 
-            "Topic": "vitalis/2/device/DEMO2/measurements", 
-            "Message": "{'temp':24, 'spo2': 50, 'battery_level':70, 'sbp':70,'dbp':110, 'respiration_rate':18,'heart_rate':72}"
-        },
-        {
-            "Name": "custom 1", 
-            "Topic": "test/alert", 
-            "Message": "{'alert':0}"
-        },
-        {
-            "Name": "custom 2", 
-            "Topic": "test/alert", 
-            "Message": "{'alert':0}"
-        },
-        {
-            "Name": "custom 3", 
-            "Topic": "test/alert", 
-            "Message": "{'alert':0}"
-        }
-    ]
+[
+ {
+  "Name": "DEMO2 [r]",
+  "Description": "Real demo dos",
+  "Topic": "devices/2/device/DEMO2/measurements",
+  "Message": "{\"temp\":30, \"hum\":55, \"bat\":72}"
+ },
+ {
+  "Name": "Vitalis [r] ",
+  "Description": "Vitales real demo",
+  "Topic": "vitalis/2/device/DEMO2/measurements",
+  "Message": "{\"temp\":24, \"spo2\": 50, \"battery_level\":70, \"sbp\":70,\"dbp\":110, \"respiration_rate\":18,\"heart_rate\":72}"
+ },
+ {
+  "Name": "test",
+  "Description": "test",
+  "Topic": "test",
+  "Message": "test"
+ }
+]
