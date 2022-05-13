@@ -1,20 +1,46 @@
 [
  {
-  "Name": "DEMO2 [r]",
-  "Description": "Real demo dos",
-  "Topic": "devices/2/device/DEMO2/measurements",
-  "Message": "{\"temp\":30, \"hum\":55, \"bat\":72}"
+  "Name": "Demo Broker TGC",
+  "Description": "Demo Broker TGC",
+  "Endpoint": "devcommon.thegrouplab.com",
+  "User": "tgl",
+  "Password": "tgl1234id",
+  "Port": "1883",
+  "pubs": [
+   {
+    "name": "DEMO2 [r]",
+    "Description": "Real demo dos",
+    "Topic": "devices/2/device/DEMO2/measurements",
+    "Message": "{\"temp\":30, \"hum\":55, \"bat\":72}"
+   },
+   {
+    "name": "Vitalis [r] ",
+    "Description": "Vitales real demo",
+    "Topic": "vitalis/2/device/DEMO2/measurements",
+    "Message": "{\"temp\":24, \"spo2\": 50, \"battery_level\":70, \"sbp\":70,\"dbp\":110, \"respiration_rate\":18,\"heart_rate\":72}"
+   },
+   {
+    "name": "DEMO1",
+    "Description": "This is a test for demo 1 device",
+    "Topic": "devices/2/device/DEMO1/measurements",
+    "Message": "{\"temp\":31, \"hum\":55, \"bat\":77}"
+   }
+  ]
  },
  {
-  "Name": "Vitalis [r] ",
-  "Description": "Vitales real demo",
-  "Topic": "vitalis/2/device/DEMO2/measurements",
-  "Message": "{\"temp\":24, \"spo2\": 50, \"battery_level\":70, \"sbp\":70,\"dbp\":110, \"respiration_rate\":18,\"heart_rate\":72}"
- },
- {
-  "Name": "test",
-  "Description": "test",
-  "Topic": "test",
-  "Message": "test"
+  "Name": "Sandbox Broker TGC",
+  "Description": "Sandbox Broker TGC",
+  "Endpoint": "devcommon.thegrouplab.com",
+  "User": "tgl",
+  "Password": "tgl1234id",
+  "Port": "1884",
+  "pubs": [
+   {
+    "name": "test-length",
+    "Description": "Test length message to ui",
+    "Topic": "test/msg-length",
+    "Message": "{ \"glossary\": { \"title\": \"example glossary\", \"GlossDiv\": { \"title\": \"S\", \"GlossList\": { \"GlossEntry\": { \"ID\": \"SGML\", \"SortAs\": \"SGML\", \"GlossTerm\": \"Standard Generalized Markup Language\", \"Acronym\": \"SGML\", \"Abbrev\": \"ISO 8879:1986\", \"GlossDef\": { \"para\": \"A meta-markup language, used to create markup languages such as DocBook.\", \"GlossSeeAlso\": [\"GML\", \"XML\"] }, \"GlossSee\": \"markup\" } } } } }"
+   }
+  ]
  }
 ]

@@ -1,0 +1,20 @@
+[
+ {
+  "Name": "DEMO2 [r]",
+  "Description": "Real demo dos",
+  "Topic": "devices/2/device/DEMO2/measurements",
+  "Message": "{\"temp\":30, \"hum\":55, \"bat\":72}"
+ },
+ {
+  "Name": "Vitalis [r] ",
+  "Description": "Vitales real demo",
+  "Topic": "vitalis/2/device/DEMO2/measurements",
+  "Message": "{\"temp\":24, \"spo2\": 50, \"battery_level\":70, \"sbp\":70,\"dbp\":110, \"respiration_rate\":18,\"heart_rate\":72}"
+ },
+ {
+  "Name": "test-length",
+  "Description": "Test length message to ui",
+  "Topic": "test/msg-length",
+  "Message": "{ \"glossary\": { \"title\": \"example glossary\", \"GlossDiv\": { \"title\": \"S\", \"GlossList\": { \"GlossEntry\": { \"ID\": \"SGML\", \"SortAs\": \"SGML\", \"GlossTerm\": \"Standard Generalized Markup Language\", \"Acronym\": \"SGML\", \"Abbrev\": \"ISO 8879:1986\", \"GlossDef\": { \"para\": \"A meta-markup language, used to create markup languages such as DocBook.\", \"GlossSeeAlso\": [\"GML\", \"XML\"] }, \"GlossSee\": \"markup\" } } } } }"
+ }
+]

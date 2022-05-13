@@ -3,7 +3,8 @@ package model
 import "fmt"
 
 type PublisherData struct {
-	Name        string
+	//add fields and name validation required
+	Name        string `json:"name" binding:"required"`
 	Description string
 	Topic       string
 	Message     string

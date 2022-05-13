@@ -18,21 +18,34 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/dhinojosac/mqtt_app_desktop/config"
 	"github.com/dhinojosac/mqtt_app_desktop/model"
+	"github.com/dhinojosac/mqtt_app_desktop/ui"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/tidwall/pretty"
 )
+
+var MAX_LINES = 200
 
 var isConnected bool
 var isSubscribed bool
 var Client MQTT.Client
 
-var containerList *fyne.Container
+var containerList *fyne.Container //store history on subscribe view
 var desub_button *widget.Button
 var subs_button *widget.Button
 var checkAuto *widget.Check
+var publisherSelect *widget.SelectEntry
 
-var pubList model.PublisherList
+var pubItem *container.TabItem
+var subItem *container.TabItem
+var logItem *container.TabItem
+var AppTabs *container.AppTabs
+
+var brokerList model.BrokerList // list of brokers in memory
+var currentBroker model.Broker  // current broker in memory
 
 var autoPublish bool
+
+var msgChan = make(chan MQTT.Message, 10)
 
 func checkConnection() {
 	for {
@@ -47,14 +60,28 @@ func checkConnection() {
 
 func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 	mqtt_address := widget.NewEntry()
-	mqtt_address.SetPlaceHolder("cloud.thegrouplab.com")
-	mqtt_address.Text = "cloud.thegrouplab.com"
+	mqtt_address.SetPlaceHolder("Select your broker")
+	mqtt_address.SetPlaceHolder("mqtt.broker.com")
 	mqtt_user := widget.NewEntry()
-	mqtt_user.SetPlaceHolder("tgl")
-	mqtt_user.SetText("tgl")
+	mqtt_user.SetPlaceHolder("username")
 	mqtt_password := widget.NewPasswordEntry()
-	mqtt_password.SetPlaceHolder("tgl1234id")
-	mqtt_password.SetText("tgl1234id")
+	mqtt_password.SetPlaceHolder("password")
+	mqtt_port := widget.NewEntry()
+	mqtt_port.SetPlaceHolder("1883")
+
+	brokerList.SetItems(config.ReadBrokers()) //Read conf.json
+
+	brokerSelect := widget.NewSelectEntry(brokerList.GetNames())
+	brokerSelect.OnChanged = func(s string) {
+		p := brokerList.GetItem(s)
+		mqtt_address.SetText(p.Endpoint)
+		mqtt_user.SetText(p.User)
+		mqtt_password.SetText(p.Password)
+		mqtt_port.SetText(p.Port)
+		currentBroker = config.ReadBroker(s)
+		fmt.Printf("\nSelected broker: %s\n", currentBroker.Endpoint)
+		publisherSelect.SetOptions(currentBroker.GetPublisherNames())
+	}
 
 	mqtt_log := widget.NewLabel("")
 	var conn_button *widget.Button
@@ -64,23 +91,30 @@ func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 				err := errors.New("MQTT Broker empty")
 				dialog.ShowError(err, win)
 			} else {
-				opts := MQTT.NewClientOptions().AddBroker("tcp://" + mqtt_address.Text + ":1883") //"tcp://code4fun.cl:1883"
+				opts := MQTT.NewClientOptions().AddBroker("tcp://" + mqtt_address.Text + ":" + mqtt_port.Text) //"tcp://code4fun.cl:1883"
 				if mqtt_user.Text != "" {
 					opts.SetUsername(mqtt_user.Text)
 				}
 				if mqtt_password.Text != "" {
 					opts.SetPassword(mqtt_password.Text)
 				}
+				//generate client id
+				clientName := "tgc-mqtt-tester-client" + strconv.Itoa(int(time.Now().Unix()))
+				// add random client id
+				opts.SetClientID(clientName)
+
 				Client = MQTT.NewClient(opts)
 				if token := Client.Connect(); token.Wait() && token.Error() != nil {
 					log.Fatal(token.Error())
 				}
 				isConnected = true
-				mqtt_log.SetText("Client connected")
+				mqtt_log.SetText("Client connected to " + mqtt_address.Text + ":" + mqtt_port.Text + "\nwith client name: " + clientName)
 				conn_button.SetText("DISCONNECT")
+
 				mqtt_address.Disable()
 				mqtt_user.Disable()
 				mqtt_password.Disable()
+				mqtt_port.Disable()
 				checkAuto.Enable()
 				go checkConnection()
 			}
@@ -92,16 +126,24 @@ func MQTTSetting(win fyne.Window) fyne.CanvasObject {
 			mqtt_address.Enable()
 			mqtt_user.Enable()
 			mqtt_password.Enable()
+
 		}
 
 	})
+	// create horizontal layout with results
+	mqtt_layout := container.New(layout.NewGridLayout(2),
+		widget.NewLabel("Address"), mqtt_address,
+		widget.NewLabel("Port"), mqtt_port,
+		widget.NewLabel("User"), mqtt_user,
+		widget.NewLabel("Password"), mqtt_password,
+	)
+
+	// return mqtt_layout
+
 	return container.New(layout.NewVBoxLayout(),
 		widget.NewLabel("MQTT Broker"),
-		mqtt_address,
-		widget.NewLabel("User"),
-		mqtt_user,
-		widget.NewLabel("Password"),
-		mqtt_password,
+		brokerSelect,
+		mqtt_layout,
 		conn_button,
 		mqtt_log,
 	)
@@ -111,12 +153,10 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 
 	mqtt_topic := widget.NewEntry()
 	mqtt_topic.SetPlaceHolder("devices/<organization>/device/<identifier>/measurements")
-	//mqtt_topic.Text = "devices/2/device/DEMO2/measurements"
 
 	mqtt_message_label := widget.NewLabel("Message:")
 	mqtt_message_input := widget.NewMultiLineEntry()
 	mqtt_message_input.SetPlaceHolder(`{"temp":24, "hum":50}`)
-	//mqtt_message_input.SetText(`{"temp":24, "hum":50}`)
 
 	mqtt_log := widget.NewLabel("")
 	pub_button := widget.NewButton("PUBLISH", func() {
@@ -177,17 +217,9 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 
 	pub_adv := container.New(layout.NewHBoxLayout(), widget.NewLabel("Time:"), autoTime, widget.NewLabel("s"), widget.NewLabel("  "), checkAuto)
 
-	// TODO: get publisher from file
-	// v1 := model.PublisherData{Name: "Demo2", Topic: "devices/2/device/DEMO2/measurements", Message: `{"temp":30, "hum":55, "bat":72}`}
-	// v2 := model.PublisherData{Name: "Vitalis Test", Topic: "topic/2/2", Message: `{"temp":24, "spo2": 50, "battery_level":70, "sbp":70,"dbp":110, "respiration_rate":18,"heart_rate":72}`}
-	// v3 := model.PublisherData{Name: "Custom", Topic: "test/alert", Message: `{"alert":0}`}
-	// pubList.SetItems([]model.PublisherData{v1, v2, v3})
-
-	pubList.SetItems(config.ReadPublisher()) //Read conf.json
-
-	publisherSelect := widget.NewSelectEntry(pubList.GetNames())
+	publisherSelect = widget.NewSelectEntry([]string{})
 	publisherSelect.OnChanged = func(s string) {
-		p := pubList.GetItem(s)
+		p := currentBroker.GetPublisher(s)
 		mqtt_topic.SetText(p.Topic)
 		mqtt_message_input.SetText(p.Message)
 	}
@@ -212,11 +244,10 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 				Topic:       mqtt_topic.Text,
 				Message:     mqtt_message_input.Text,
 			}
-			pubList.AddItem(n)                         //Add new item to list object
-			config.WritePublisher(pubList.PubList)     //Write new list conf.json
-			pubList.ReSetItems(config.ReadPublisher()) //Read conf.json
+			currentBroker.AddPublisher(n) // add publisher to broker
+			config.WriteBroker(currentBroker)
 			publisherSelect.SetText(n.Name)
-			publisherSelect.SetOptions(pubList.GetNames()) //Add new list to selectEntry
+			publisherSelect.SetOptions(currentBroker.GetPublisherNames()) //Add new list to selectEntry
 			namePubEntry.SetText("")
 			descPubEntry.SetText("")
 
@@ -226,13 +257,12 @@ func MQTTPubScreen(win fyne.Window) fyne.CanvasObject {
 	// Delete Button
 	deletePubButton := widget.NewButton("DELETE TEMPLATE", func() {
 		dialog.ShowCustomConfirm("Delete Template", "SAVE", "CANCEL", widget.NewLabel("Are you sure?"), func(b bool) {
-			pubList.DeleteItem(publisherSelect.Text)   //delete item from object list
-			config.WritePublisher(pubList.PubList)     //Write new list to conf.json
-			pubList.ReSetItems(config.ReadPublisher()) //Read conf.json
-			mqtt_topic.SetText("")                     //reset topic entry
-			mqtt_message_input.SetText("")             //reset message entry
+			currentBroker.DeletePublisher(publisherSelect.Text)
+			config.WriteBroker(currentBroker)
+			mqtt_topic.SetText("")         //reset topic entry
+			mqtt_message_input.SetText("") //reset message entry
 			publisherSelect.SetText("")
-			publisherSelect.SetOptions(pubList.GetNames()) //Add new list to selectEntry
+			publisherSelect.SetOptions(currentBroker.GetPublisherNames()) //Add new list to selectEntry //todo:change
 		}, win)
 	})
 
@@ -260,11 +290,10 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 	//scroll
 
 	containerList = container.New(layout.NewVBoxLayout(), widget.NewLabel(""))
-	containerList.Resize(fyne.NewSize(800, 100))
+	// containerList.Resize(fyne.NewSize(800, 100))
 	index := 1
 
-	scroll := container.NewVScroll(containerList)
-	scroll.Resize(fyne.NewSize(800, 100))
+	scroll := container.NewScroll(containerList)
 
 	desub_button = widget.NewButton("UNSUBSCRIBE", func() {
 		if isConnected && isSubscribed {
@@ -305,6 +334,7 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 					desub_button.Enable()
 					Client.Subscribe(mqtt_topic.Text, 0, func(client MQTT.Client, msg MQTT.Message) {
 						console_text := fmt.Sprintf("[%d] topic: %s\nmsg:%s", index, string(msg.Topic()), string(msg.Payload()))
+						msgChan <- msg //send msg to channel
 						containerList.Add(widget.NewLabel(console_text))
 						scroll.ScrollToBottom()
 						index++
@@ -327,6 +357,38 @@ func MQTTSubScreen(win fyne.Window) fyne.CanvasObject {
 	)
 
 	return container.New(layout.NewGridLayoutWithRows(2), v1, scroll)
+}
+
+func testSub(win fyne.Window) fyne.CanvasObject {
+	format := false
+	chHist := ui.NewChatScrollHistory()
+	go func() {
+		for msg := range msgChan {
+			m := string(msg.Payload())
+			if format {
+				//pretty json format
+				m = string(pretty.Pretty(msg.Payload()))
+			}
+			console_text := fmt.Sprintf("[%d] topic: %s\ntimestamp:%s\nmsg: %s", chHist.GetLength(), string(msg.Topic()), time.Now().String(), m)
+			chHist.AddMessage(console_text)
+			fmt.Println(string(msg.Payload()))
+		}
+
+	}()
+
+	btn := widget.NewButton("Clear", func() {
+		chHist.Clear()
+	})
+
+	cn := widget.NewCheck("Pretty JSON", func(b bool) {
+		format = b
+	})
+
+	a0 := container.New(layout.NewHBoxLayout(), cn, btn)
+	a1 := container.New(layout.NewMaxLayout(), chHist.Scroll)
+	a2 := container.New(layout.NewBorderLayout(nil, a0, nil, nil), a1, a0)
+
+	return a2
 }
 
 func makeUI() fyne.CanvasObject {
@@ -371,15 +433,21 @@ func main() {
 		fyne.NewMenuItem("Paste", func() { fmt.Println("Menu Paste") }),
 	)))
 
-	tabs := container.NewAppTabs(
+	pubItem = container.NewTabItemWithIcon("Publish", theme.MailSendIcon(), MQTTPubScreen(w))
+	subItem = container.NewTabItemWithIcon("Subscribe", theme.SearchIcon(), MQTTSubScreen(w))
+	logItem = container.NewTabItemWithIcon("Log", theme.FileIcon(), testSub(w))
+
+	AppTabs = container.NewAppTabs(
 		container.NewTabItemWithIcon("Config", theme.SettingsIcon(), MQTTSetting(w)),
-		container.NewTabItemWithIcon("Publish", theme.MailSendIcon(), MQTTPubScreen(w)),
-		container.NewTabItemWithIcon("Subscribe", theme.SearchIcon(), MQTTSubScreen(w)),
+		pubItem,
+		subItem,
+		logItem,
 		//container.NewTabItemWithIcon("Test", theme.ComputerIcon(), makeUI()),
 	)
 
-	tabs.SetTabLocation(container.TabLocationLeading)
-	w.SetContent(tabs)
+	AppTabs.SetTabLocation(container.TabLocationLeading)
+	w.SetContent(AppTabs)
+	// w.SetFixedSize(true)
 	w.Resize(fyne.NewSize(900, 320))
 	w.ShowAndRun()
 }

@@ -12,9 +12,15 @@
   "Message": "{\"temp\":24, \"spo2\": 50, \"battery_level\":70, \"sbp\":70,\"dbp\":110, \"respiration_rate\":18,\"heart_rate\":72}"
  },
  {
-  "Name": "test",
-  "Description": "test",
-  "Topic": "test",
-  "Message": "test"
+  "Name": "Telegraf 1",
+  "Description": "Test telegraf ",
+  "Topic": "sensors/temp",
+  "Message": "{\"temp\":30}"
+ },
+ {
+  "Name": "VRP Presurizadora",
+  "Description": "Device para pruebas de presion y alertas",
+  "Topic": "devices/2/device/3530353081377015/measurements",
+  "Message": "{\"press\":5}"
  }
 ]
